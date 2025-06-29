@@ -12,4 +12,7 @@ Hint: Only for APACHE Servers - no NGINX (sorry)
 | 1.4 | First public Version |
 
 
+![Screenshot WebP Autogen WordPress Plugin](https://github.com/jadoGmbH/WebP-Autogen/blob/main/webp-autogen-screenshot.jpg?raw=true)
+
+
 Searching also for a fast an slim light starter Template for WordPress development? Give it a try: https://github.com/jadoGmbH/jadoStarterTheme/
