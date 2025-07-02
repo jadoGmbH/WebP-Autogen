@@ -8,6 +8,7 @@ Hint: Only for APACHE Servers - no NGINX (sorry)
 
 | Version | Features & Optimizations |
 | ------- | ------- |
+| 1.6 | Translations and JS Seperation |
 | 1.5 | Status bar added - better User Interface |
 | 1.4 | First public Version |
 
