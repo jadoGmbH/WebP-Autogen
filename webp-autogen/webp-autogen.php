@@ -13,6 +13,12 @@ add_action('plugins_loaded', function () {
 });
 
 
+function webp_autogen_get_quality() {
+    $quality = get_option('webp_autogen_quality');
+    return is_numeric($quality) ? (int)$quality : 80;
+}
+
+
 // === Admin-Menü ===
 add_action('admin_menu', function () {
     add_options_page(
@@ -27,9 +33,24 @@ add_action('admin_menu', function () {
 // === Admin Page ===
 function webp_autogen_admin_page()
 {
+    if (isset($_POST['webp_quality'])) {
+        $new_quality = (int)$_POST['webp_quality'];
+        if ($new_quality >= 0 && $new_quality <= 100) {
+            update_option('webp_autogen_quality', $new_quality);
+            echo '<div class="notice notice-success"><p>' . esc_html__('WebP quality updated.', 'webp-autogen') . '</p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>' . esc_html__('Invalid WebP quality value.', 'webp-autogen') . '</p></div>';
+        }
+    }
+    $current_quality = webp_autogen_get_quality();
     echo '<div class="wrap"><h1>' . esc_html__('WebP Autogen', 'webp-autogen') . '</h1>';
     echo '<p>WebP Autogen Status: <span style="background-color: #77940f; color: white; padding: 0.5em; border-radius: 3px;">ON</span> - Newly uploaded images will be converted automatically.</p>';
     echo '<p>' . esc_html__('WebP files are created from all existing JPG/PNG files in the upload folder.', 'webp-autogen') . '</p>';
+    echo '<form method="post" style="margin-top:2em;">
+        <label for="webp_quality">' . esc_html__('Set WebP Quality (0–100):', 'webp-autogen') . '</label>
+        <input type="number" id="webp_quality" name="webp_quality" value="' . esc_attr($current_quality) . '" min="0" max="100" />
+        <input type="submit" class="button button-secondary" value="' . esc_attr__('Save', 'webp-autogen') . '" />
+      </form>';
     echo '<div id="webp-status">' . esc_html__('Ready to Convert', 'webp-autogen') . '</div>';
     echo '<button id="webp-start" class="button button-primary" style="margin-top: 1em;"><p>' . esc_html__('Start WebP Conversion of all images already uploaded', 'webp-autogen') . '</p></button>';
     echo '<div id="webp-progress-wrapper" style="border:1px solid #ccc;margin-top:20px;border-radius: 3px;display:none;">
@@ -44,7 +65,6 @@ function webp_autogen_admin_page()
 
 // === AJAX Handler ===
 add_action('wp_ajax_webp_autogen_convert_batch', function () {
-    //error_log('AJAX Request received');
     $result = webp_autogen_generate_existing(true);
     wp_send_json($result);
 });
@@ -69,7 +89,10 @@ function webp_autogen_generate_existing($return_stats = false, $limit = 200)
         }
         $editor = wp_get_image_editor($source);
         if (!is_wp_error($editor)) {
-            $editor->save($webp, 'image/webp');
+            $editor->save($webp, [
+                'mime-type' => 'image/webp',
+                'quality' => webp_autogen_get_quality(),
+            ]);
             $converted++;
         }
         if ($converted >= $limit) break;
@@ -116,13 +139,20 @@ function webp_autogen_create_on_upload($metadata, $attachment_id)
     $image = wp_get_image_editor($file);
     if (!is_wp_error($image)) {
         $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $file);
-        $image->save($webp, 'image/webp');
+        $image->save($webp, [
+            'mime-type' => 'image/webp',
+            'quality' => webp_autogen_get_quality(),
+        ]);
     }
     if (!empty($metadata['sizes'])) {
         $pathinfo = pathinfo($file);
         foreach ($metadata['sizes'] as $size) {
             $resized_file = $pathinfo['dirname'] . '/' . $size['file'];
             $resized_editor = wp_get_image_editor($resized_file);
+            $resized_editor->save($resized_webp, [
+                'mime-type' => 'image/webp',
+                'quality' => webp_autogen_get_quality(),
+            ]);
             if (!is_wp_error($resized_editor)) {
                 $resized_webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $resized_file);
                 $resized_editor->save($resized_webp, 'image/webp');
