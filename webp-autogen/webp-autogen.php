@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WebP Autogen
  * Description: Automatic WebP generation during upload + manual conversion of all uploads via an admin menu.
- * Version: 1.6
+ * Version: 1.6.1
  * Author: jado GmbH
  */
 
@@ -82,18 +82,22 @@ function webp_autogen_generate_existing($return_stats = false, $limit = 200)
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         if (!in_array($ext, ['jpg', 'jpeg', 'png'])) continue;
         $source = $file->getPathname();
-        $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $source);
-        if (file_exists($webp)) {
+        $webp_path = preg_replace('/\.(jpe?g|png)$/i', '.webp', $source);
+        if (file_exists($webp_path) || file_exists($source . '.webp')) {
             $skipped++;
             continue;
         }
         $editor = wp_get_image_editor($source);
         if (!is_wp_error($editor)) {
-            $editor->save($webp, [
-                'mime-type' => 'image/webp',
-                'quality' => webp_autogen_get_quality(),
-            ]);
-            $converted++;
+            $editor->set_quality(webp_autogen_get_quality());
+            $result = $editor->save($webp_path);
+            if (!is_wp_error($result)) {
+                $converted++;
+            } else {
+                error_log('WebP save failed: ' . $result->get_error_message());
+            }
+        } else {
+            error_log('Image editor error: ' . $editor->get_error_message());
         }
         if ($converted >= $limit) break;
     }
@@ -139,23 +143,21 @@ function webp_autogen_create_on_upload($metadata, $attachment_id)
     $image = wp_get_image_editor($file);
     if (!is_wp_error($image)) {
         $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $file);
-        $image->save($webp, [
-            'mime-type' => 'image/webp',
-            'quality' => webp_autogen_get_quality(),
-        ]);
+        $image->set_quality(webp_autogen_get_quality());
+        $image->save($webp);
     }
     if (!empty($metadata['sizes'])) {
         $pathinfo = pathinfo($file);
         foreach ($metadata['sizes'] as $size) {
             $resized_file = $pathinfo['dirname'] . '/' . $size['file'];
             $resized_editor = wp_get_image_editor($resized_file);
-            $resized_editor->save($resized_webp, [
-                'mime-type' => 'image/webp',
-                'quality' => webp_autogen_get_quality(),
-            ]);
             if (!is_wp_error($resized_editor)) {
                 $resized_webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $resized_file);
-                $resized_editor->save($resized_webp, 'image/webp');
+                $resized_editor->set_quality(webp_autogen_get_quality());
+                $result = $resized_editor->save($resized_webp);
+                if (is_wp_error($result)) {
+                    error_log('WebP resized save failed: ' . $result->get_error_message());
+                }
             }
         }
     }
